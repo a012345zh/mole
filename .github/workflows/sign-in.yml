@@ -1,0 +1,48 @@
+name: 签到
+
+on:
+  push:
+  schedule:
+    - cron: 0,5 16 * * *
+  workflow_dispatch: # workflow_dispatch 要放最后，否则会导致 schedule 失效
+
+permissions:
+  contents: write
+
+jobs:
+  sign-in:
+    runs-on: ubuntu-latest
+    env:
+      WECHAT_PARAMS: ${{ secrets.WECHAT_PARAMS }}
+      MOLE_ACCOUNTS: ${{ secrets.MOLE_ACCOUNTS }}
+      ECLOUD_ACCOUNT: ${{ secrets.ECLOUD_ACCOUNT }}
+      ZEPP_ACCOUNTS: ${{ secrets.ZEPP_ACCOUNTS }}
+      ZEPP_STEP_MIN: ${{ secrets.ZEPP_STEP_MIN }}
+      ZEPP_STEP_MAX: ${{ secrets.ZEPP_STEP_MAX }}
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v5
+      - name: 安装环境
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.13
+      - name: 安装依赖
+        run: |
+          pip install -r requirements.txt
+      - name: 摩尔庄园签到
+        run: |
+          python mole.py
+      - name: 更新补签数据
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: mole.json
+          default_author: github_actions
+          message: 更新补签数据
+      - name: 天翼云盘签到
+        if: env.ECLOUD_ACCOUNT != '' # 加了个判断，只有配置了账号才跑
+        run: |
+          python ecloud.py
+      - name: Zepp 步数同步
+        if: env.ZEPP_ACCOUNTS != '' # 只有配置了 Zepp 账号才跑
+        run: |
+          python zepp.py
